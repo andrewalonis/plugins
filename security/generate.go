@@ -113,34 +113,34 @@ func Example(genpkg string, roots []eval.Root, files []*codegen.File) ([]*codege
 			apiPkg = strings.ToLower(codegen.Goify(r.API.Name, false))
 			for _, s := range r.Services {
 				data = BuildSecureServiceData(s)
-			}
-		}
-	}
-	if data != nil {
-		svcSchemes := data.Schemes()
-		authFuncs := make([]string, 0, len(svcSchemes))
-		for _, s := range svcSchemes {
-			authFuncs = append(authFuncs, fmt.Sprintf("%s.Auth%sFn", apiPkg, s.Type()))
-		}
-		for _, f := range files {
-			for _, s := range f.Section("service-main") {
-				s.Source = strings.Replace(
-					s.Source,
-					"{{ .Service.PkgName }}Endpoints = {{ .Service.PkgName }}.NewEndpoints({{ .Service.PkgName }}Svc)",
-					fmt.Sprintf("{{ .Service.PkgName }}Endpoints = {{ .Service.PkgName }}.NewSecureEndpoints({{ .Service.PkgName }}Svc, %s)", strings.Join(authFuncs, ", ")),
-					1,
-				)
-			}
-			if s := f.Section("dummy-endpoint"); len(s) > 0 {
-				for _, h := range f.Section("source-header") {
-					codegen.AddImport(h, codegen.SimpleImport("goa.design/plugins/security"))
-					codegen.AddImport(h, codegen.SimpleImport("fmt"))
+				if data != nil {
+					svcSchemes := data.Schemes()
+					authFuncs := make([]string, 0, len(svcSchemes))
+					for _, s := range svcSchemes {
+						authFuncs = append(authFuncs, fmt.Sprintf("%s.Auth%sFn", apiPkg, s.Type()))
+					}
+					for _, f := range files {
+						for _, s := range f.Section("service-main") {
+							s.Source = strings.Replace(
+								s.Source,
+								"{{ .Service.PkgName }}Endpoints = {{ .Service.PkgName }}.NewEndpoints({{ .Service.PkgName }}Svc)",
+								fmt.Sprintf("{{ .Service.PkgName }}Endpoints = {{ .Service.PkgName }}.NewSecureEndpoints({{ .Service.PkgName }}Svc, %s)", strings.Join(authFuncs, ", ")),
+								1,
+							)
+						}
+						if s := f.Section("dummy-endpoint"); len(s) > 0 {
+							for _, h := range f.Section("source-header") {
+								codegen.AddImport(h, codegen.SimpleImport("goa.design/plugins/security"))
+								codegen.AddImport(h, codegen.SimpleImport("fmt"))
+							}
+							f.SectionTemplates = append(f.SectionTemplates, &codegen.SectionTemplate{
+								Name:   "dummy-authorize-funcs",
+								Source: dummyAuthFuncsT,
+								Data:   data,
+							})
+						}
+					}
 				}
-				f.SectionTemplates = append(f.SectionTemplates, &codegen.SectionTemplate{
-					Name:   "dummy-authorize-funcs",
-					Source: dummyAuthFuncsT,
-					Data:   data,
-				})
 			}
 		}
 	}
